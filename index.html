@@ -36,17 +36,19 @@
         <h2 style="margin-top:0">Абонирай се за известия</h2>
         <p>Натисни бутона, за да получаваш web push при нов концерт.</p>
         <button id="subscribeBtn">Абонирай ме</button>
-        <p class="tip">Съвет: на iPhone първо добави сайта на Home Screen, после отвори от иконата и разреши известия.</p>
+        <p class="tip">На iPhone: добави сайта на Home Screen и отвори от иконата, за да разрешиш известия.</p>
       </section>
 
       <section class="card">
         <h2 style="margin-top:0">Календар с концерти</h2>
-        <p>Виж всички предстоящи дати. Можеш да добавиш целия календар в своя Google/Apple календар.</p>
-        <!-- ЗАМЕНИ {YOUR_CALENDAR_ID} с твоя публичен Google Calendar ID -->
         <iframe
           src="https://calendar.google.com/calendar/embed?src=9bac831570f5d3e35b1261209d5771dc6619c4ce71f09c9e2724d19973541915%40group.calendar.google.com&ctz=Europe%2FSofia"
           loading="lazy"></iframe>
-        <p class="tip">Алтернатива: <a id="icsLink" href="https://calendar.google.com/calendar/ical/9bac831570f5d3e35b1261209d5771dc6619c4ce71f09c9e2724d19973541915%40group.calendar.google.com/public/basic.ics" download>Свали .ics</a>.</p>
+        <p class="tip">
+          <a href="https://calendar.google.com/calendar/ical/9bac831570f5d3e35b1261209d5771dc6619c4ce71f09c9e2724d19973541915%40group.calendar.google.com/public/basic.ics" download>
+            Свали .ics
+          </a>
+        </p>
       </section>
 
       <section class="card">
@@ -60,51 +62,54 @@
     <div>© <span id="year"></span> Shiny Events</div>
   </footer>
 
-  <!-- OneSignal SDK -->
-  <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async></script>
+  <!-- OneSignal SDK v16 -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-    // Регистрация на service worker за PWA кеш и push
+    // PWA service worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./service-worker.js');
       });
     }
 
-    // Примерно зареждане на събития от events.json
+    // Зареждане на примерни събития
     fetch('./events.json').then(r => r.json()).then(list => {
       const wrap = document.getElementById('events');
       wrap.innerHTML = list.map(ev => {
         return `<div style="margin:8px 0;padding:12px;border:1px solid #333;border-radius:12px">
           <strong>${ev.title}</strong><br>
           ${new Date(ev.date).toLocaleString('bg-BG')} — ${ev.venue}
-        </div>`
+        </div>`;
       }).join('');
-    }).catch(() => {
-      document.getElementById('events').textContent = 'Няма заредени събития (редактирай events.json).';
     });
 
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // OneSignal Web Push (замени APP_ID)
+    // OneSignal init (нов API)
     window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(function(OneSignal) {
-      OneSignal.init({
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
         appId: "347845c9-a96f-49a5-8505-724accf392b3",
-        notifyButton: { enable: true },
-        allowLocalhostAsSecureOrigin: true // удобство при локални тестове
+        notifyButton: { enable: false } // изключваме вградения бутон, ползваме нашия
       });
 
       const btn = document.getElementById('subscribeBtn');
-      function updateBtn(){
-        OneSignal.User.PushSubscription.optedIn().then(is => {
-          btn.textContent = is ? "Абониран си ✔" : "Абонирай ме";
-          btn.disabled = is;
-        });
+
+      async function updateBtn() {
+        const state = await OneSignal.User.PushSubscription.optedIn();
+        btn.textContent = state ? "Абониран си ✔" : "Абонирай ме";
+        btn.disabled = state;
       }
+
       btn.addEventListener('click', async () => {
-        try { await OneSignal.Notifications.requestPermission(); } catch(e){ console.warn(e); }
+        try {
+          await OneSignal.Notifications.requestPermission();
+        } catch (e) {
+          console.warn("Permission error:", e);
+        }
         updateBtn();
       });
+
       updateBtn();
     });
   </script>
