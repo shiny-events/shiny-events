@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shiny Events</title>
+  <meta name="description" content="Концертите на Shiny — график, новини и пуш известия.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <meta name="theme-color" content="#111111">
+  <style>
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:#0f0f10;color:#eee}
+    header{padding:24px 16px;border-bottom:1px solid #222;position:sticky;top:0;background:#0f0f10}
+    .container{max-width:960px;margin:0 auto;padding:16px}
+    .grid{display:grid;grid-template-columns:1fr;gap:16px}
+    .card{padding:16px;border:1px solid #222;border-radius:16px}
+    button{padding:12px 16px;border-radius:12px;border:1px solid #333;background:#1a1a1b;color:#eee;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    a{color:inherit}
+    iframe{width:100%;min-height:600px;border:0;border-radius:12px}
+    footer{padding:24px 16px;color:#999;border-top:1px solid #222}
+    .tip{font-size:.9rem;color:#bbb}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1 style="margin:0">Shiny Events</h1>
+      <div class="tip">PWA сайт — инсталирай от менюто на браузъра (Add to Home Screen).</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <section class="card">
+        <h2 style="margin-top:0">Абонирай се за известия</h2>
+        <p>Натисни бутона, за да получаваш web push при нов концерт.</p>
+        <button id="subscribeBtn">Абонирай ме</button>
+        <p class="tip">Съвет: на iPhone първо добави сайта на Home Screen, после отвори от иконата и разреши известия.</p>
+      </section>
+
+      <section class="card">
+        <h2 style="margin-top:0">Календар с концерти</h2>
+        <p>Виж всички предстоящи дати. Можеш да добавиш целия календар в своя Google/Apple календар.</p>
+        <!-- ЗАМЕНИ {YOUR_CALENDAR_ID} с твоя публичен Google Calendar ID -->
+        <iframe
+          src="https://calendar.google.com/calendar/embed?src={YOUR_CALENDAR_ID}&ctz=Europe%2FSofia"
+          loading="lazy"></iframe>
+        <p class="tip">Алтернатива: <a id="icsLink" href="#" download>Свали .ics</a> (замени линка в кода с твоя).</p>
+      </section>
+
+      <section class="card">
+        <h2 style="margin-top:0">Събития (примерни)</h2>
+        <div id="events"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="container">
+    <div>© <span id="year"></span> Shiny Events</div>
+  </footer>
+
+  <!-- OneSignal SDK -->
+  <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async></script>
+  <script>
+    // Регистрация на service worker за PWA кеш и push
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js');
+      });
+    }
+
+    // Примерно зареждане на събития от events.json
+    fetch('./events.json').then(r => r.json()).then(list => {
+      const wrap = document.getElementById('events');
+      wrap.innerHTML = list.map(ev => {
+        return `<div style="margin:8px 0;padding:12px;border:1px solid #333;border-radius:12px">
+          <strong>${ev.title}</strong><br>
+          ${new Date(ev.date).toLocaleString('bg-BG')} — ${ev.venue}
+        </div>`
+      }).join('');
+    }).catch(() => {
+      document.getElementById('events').textContent = 'Няма заредени събития (редактирай events.json).';
+    });
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // OneSignal Web Push (замени APP_ID)
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(function(OneSignal) {
+      OneSignal.init({
+        appId: "REPLACE_WITH_YOUR_ONESIGNAL_APP_ID",
+        notifyButton: { enable: true },
+        allowLocalhostAsSecureOrigin: true // удобство при локални тестове
+      });
+
+      const btn = document.getElementById('subscribeBtn');
+      function updateBtn(){
+        OneSignal.User.PushSubscription.optedIn().then(is => {
+          btn.textContent = is ? "Абониран си ✔" : "Абонирай ме";
+          btn.disabled = is;
+        });
+      }
+      btn.addEventListener('click', async () => {
+        try { await OneSignal.Notifications.requestPermission(); } catch(e){ console.warn(e); }
+        updateBtn();
+      });
+      updateBtn();
+    });
+  </script>
+</body>
+</html>
