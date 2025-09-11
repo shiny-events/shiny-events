@@ -1,7 +1,7 @@
 {
   "name": "Shiny Events",
   "short_name": "Shiny Events",
-  "description": "Концертите на Shiny — график, новини и push известия.",
+  "description": "Концертите на Shiny Events — график, новини и push известия.",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#111111",
