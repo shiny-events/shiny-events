@@ -6,7 +6,7 @@
   <title>Shiny Events</title>
   <meta name="description" content="Концертите на Shiny Events — график, новини и пуш известия.">
 
-  <!-- 🖼 Open Graph за линк превю -->
+  <!-- 🖼 Open Graph -->
   <meta property="og:title" content="Shiny Events">
   <meta property="og:description" content="Концертите на Shiny Events — график, новини и пуш известия.">
   <meta property="og:image" content="https://shiny-events.github.io/shiny_events_hor.png">
@@ -21,6 +21,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <meta name="theme-color" content="#111111">
+
   <style>
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:#0f0f10;color:#eee}
@@ -35,6 +36,28 @@
     iframe{width:100%;min-height:600px;border:0;border-radius:12px}
     footer{padding:24px 16px;color:#999;border-top:1px solid #222}
     .tip{font-size:.9rem;color:#bbb}
+
+    #smartHint {
+      display:none;
+      background:#222;
+      color:#eee;
+      padding:16px;
+      border-radius:16px;
+      margin-bottom:16px;
+      text-align:center;
+      font-size:.95rem;
+      line-height:1.5;
+    }
+    #smartHint button {
+      margin-top:10px;
+      padding:12px 18px;
+      border-radius:12px;
+      background:#1a1a1b;
+      color:#fff;
+      border:none;
+      cursor:pointer;
+      font-size:1rem;
+    }
   </style>
 </head>
 <body>
@@ -45,6 +68,10 @@
 
   <main class="container">
     <div class="grid">
+
+      <!-- 🧠 Умен банер -->
+      <div id="smartHint"></div>
+
       <section class="card">
         <h2 style="margin-top:0">Абонирай се за известия</h2>
         <p>Натисни бутона, за да получаваш web push при нов концерт.</p>
@@ -75,7 +102,6 @@
     <div>© <span id="year"></span> Shiny Events</div>
   </footer>
 
-  <!-- OneSignal SDK v16 -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     if ('serviceWorker' in navigator) {
@@ -86,6 +112,35 @@
 
     document.getElementById('year').textContent = new Date().getFullYear();
 
+    // 🧠 Детектор: iOS или In-App
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    const isIOS = /iphone|ipad|ipod/i.test(ua);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    const isInApp = /FBAN|FBAV|Instagram|Messenger/i.test(ua);
+
+    const hint = document.getElementById('smartHint');
+    const subscribeBtn = document.getElementById('subscribeBtn');
+
+    if (isInApp) {
+      hint.innerHTML = `
+        ⚡ <strong>Отваряш от Instagram / Messenger?</strong><br>
+        Вградените браузъри не позволяват известия и инсталиране на приложението.<br><br>
+        <button onclick="window.open(window.location.href, '_blank')">🔗 Отвори в браузър</button>
+      `;
+      hint.style.display = 'block';
+      subscribeBtn.style.display = 'none';
+    } else if (isIOS && !isStandalone) {
+      hint.innerHTML = `
+        📲 <strong>iPhone потребител?</strong><br>
+        За да получаваш известия:<br>
+        1️⃣ Натисни <strong>Share</strong> → 2️⃣ <strong>Add to Home Screen</strong><br>
+        3️⃣ Отвори от новата икона и натисни <strong>„Абонирай ме“</strong>
+      `;
+      hint.style.display = 'block';
+      subscribeBtn.style.display = 'none';
+    }
+
+    // 🔔 OneSignal
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(async function(OneSignal) {
       await OneSignal.init({
@@ -93,59 +148,49 @@
         notifyButton: { enable: false }
       });
 
-      const btn = document.getElementById('subscribeBtn');
       async function updateBtn() {
         const state = await OneSignal.User.PushSubscription.optedIn();
-        btn.textContent = state ? "Абониран си ✔" : "Абонирай ме";
-        btn.disabled = state;
+        subscribeBtn.textContent = state ? "Абониран си ✔" : "Абонирай ме";
+        subscribeBtn.disabled = state;
       }
 
-      btn.addEventListener('click', async () => {
-        try {
-          await OneSignal.Notifications.requestPermission();
-        } catch (e) {
-          console.warn("Permission error:", e);
-        }
+      subscribeBtn.addEventListener('click', async () => {
+        try { await OneSignal.Notifications.requestPermission(); }
+        catch (e) { console.warn("Permission error:", e); }
         updateBtn();
       });
 
       updateBtn();
     });
 
-    // 📅 Зареждане на само бъдещи събития от Google Calendar
+    // 📅 Google Calendar
     const CALENDAR_ID = "9bac831570f5d3e35b1261209d5771dc6619c4ce71f09c9e2724d19973541915@group.calendar.google.com";
     const API_KEY = "AIzaSyDo-KQjITyYdgKlcyULonqtHVUvx7udb1k";
 
     async function loadCalendarEvents() {
       const now = new Date().toISOString();
       const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?key=${API_KEY}&timeMin=${now}&singleEvents=true&orderBy=startTime`;
-
       try {
         const res = await fetch(url);
         const data = await res.json();
         const wrap = document.getElementById('events');
-
         if (!data.items || !data.items.length) {
           wrap.textContent = "Няма предстоящи събития.";
           return;
         }
-
         wrap.innerHTML = data.items.map(ev => {
           const start = ev.start.dateTime || ev.start.date;
           const venue = ev.location || "—";
-          return `
-            <div style="margin:8px 0;padding:12px;border:1px solid #333;border-radius:12px">
+          return `<div style="margin:8px 0;padding:12px;border:1px solid #333;border-radius:12px">
               <strong>${ev.summary}</strong><br>
               ${new Date(start).toLocaleString('bg-BG')} — ${venue}
             </div>`;
         }).join('');
-
       } catch (err) {
         console.error(err);
         document.getElementById('events').textContent = "Грешка при зареждане на събитията.";
       }
     }
-
     loadCalendarEvents();
   </script>
 </body>
