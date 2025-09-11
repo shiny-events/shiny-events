@@ -13,7 +13,6 @@
   <meta property="og:url" content="https://shiny-events.github.io/">
   <meta property="og:type" content="website">
 
-  <!-- 🐦 Twitter card (по желание) -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Shiny Events">
   <meta name="twitter:description" content="Концертите на Shiny Events — график, новини и пуш известия.">
@@ -23,8 +22,10 @@
   <link rel="icon" href="icons/icon-192.png">
   <meta name="theme-color" content="#111111">
   <style>
-    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:#0f0f10;color:#eee}
-    header{padding:24px 16px;border-bottom:1px solid #222;position:sticky;top:0;background:#0f0f10}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:#0f0f10;color:#eee}
+    header{padding:24px 16px;border-bottom:1px solid #222;position:sticky;top:0;background:#0f0f10;text-align:center}
+    header img{max-width:260px;height:auto;display:block;margin:0 auto 8px auto}
     .container{max-width:960px;margin:0 auto;padding:16px}
     .grid{display:grid;grid-template-columns:1fr;gap:16px}
     .card{padding:16px;border:1px solid #222;border-radius:16px}
@@ -38,10 +39,8 @@
 </head>
 <body>
   <header>
-    <div class="container">
-      <h1 style="margin:0">Shiny Events</h1>
-      <div class="tip">PWA сайт — инсталирай от менюто на браузъра (Add to Home Screen).</div>
-    </div>
+    <img src="https://shiny-events.github.io/shiny_events_hor.png" alt="Shiny Events">
+    <div class="tip">PWA сайт — инсталирай от менюто на браузъра (Add to Home Screen).</div>
   </header>
 
   <main class="container">
@@ -66,8 +65,8 @@
       </section>
 
       <section class="card">
-        <h2 style="margin-top:0">Събития (примерни)</h2>
-        <div id="events"></div>
+        <h2 style="margin-top:0">Предстоящи събития</h2>
+        <div id="events">Зареждане...</div>
       </section>
     </div>
   </main>
@@ -84,18 +83,6 @@
         navigator.serviceWorker.register('./service-worker.js');
       });
     }
-
-    fetch('./events.json').then(r => r.json()).then(list => {
-      const wrap = document.getElementById('events');
-      wrap.innerHTML = list.map(ev => {
-        return `<div style="margin:8px 0;padding:12px;border:1px solid #333;border-radius:12px">
-          <strong>${ev.title}</strong><br>
-          ${new Date(ev.date).toLocaleString('bg-BG')} — ${ev.venue}
-        </div>`;
-      }).join('');
-    }).catch(() => {
-      document.getElementById('events').textContent = 'Няма заредени събития (редактирай events.json).';
-    });
 
     document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -124,6 +111,42 @@
 
       updateBtn();
     });
+
+    // 📅 Зареждане на само бъдещи събития от Google Calendar
+    const CALENDAR_ID = "9bac831570f5d3e35b1261209d5771dc6619c4ce71f09c9e2724d19973541915@group.calendar.google.com";
+    const API_KEY = "AIzaSyDo-KQjITyYdgKlcyULonqtHVUvx7udb1k";
+
+    async function loadCalendarEvents() {
+      const now = new Date().toISOString();
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?key=${API_KEY}&timeMin=${now}&singleEvents=true&orderBy=startTime`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const wrap = document.getElementById('events');
+
+        if (!data.items || !data.items.length) {
+          wrap.textContent = "Няма предстоящи събития.";
+          return;
+        }
+
+        wrap.innerHTML = data.items.map(ev => {
+          const start = ev.start.dateTime || ev.start.date;
+          const venue = ev.location || "—";
+          return `
+            <div style="margin:8px 0;padding:12px;border:1px solid #333;border-radius:12px">
+              <strong>${ev.summary}</strong><br>
+              ${new Date(start).toLocaleString('bg-BG')} — ${venue}
+            </div>`;
+        }).join('');
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('events').textContent = "Грешка при зареждане на събитията.";
+      }
+    }
+
+    loadCalendarEvents();
   </script>
 </body>
 </html>
