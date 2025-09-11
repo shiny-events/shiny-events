@@ -4,7 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Shiny Events</title>
-  <meta name="description" content="Концертите на Shiny — график, новини и пуш известия.">
+  <meta name="description" content="Концертите на Shiny Events — график, новини и пуш известия.">
+
+  <!-- 🖼 Open Graph за линк превю -->
+  <meta property="og:title" content="Shiny Events">
+  <meta property="og:description" content="Концертите на Shiny Events — график, новини и пуш известия.">
+  <meta property="og:image" content="https://shiny-events.github.io/shiny_events_hor.png">
+  <meta property="og:url" content="https://shiny-events.github.io/">
+  <meta property="og:type" content="website">
+
+  <!-- 🐦 Twitter card (по желание) -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Shiny Events">
+  <meta name="twitter:description" content="Концертите на Shiny Events — график, новини и пуш известия.">
+  <meta name="twitter:image" content="https://shiny-events.github.io/shiny_events_hor.png">
+
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <meta name="theme-color" content="#111111">
@@ -65,14 +79,12 @@
   <!-- OneSignal SDK v16 -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-    // PWA service worker (само за кеширане, отделно от OneSignal SW)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./service-worker.js');
       });
     }
 
-    // Зареждане на примерни събития
     fetch('./events.json').then(r => r.json()).then(list => {
       const wrap = document.getElementById('events');
       wrap.innerHTML = list.map(ev => {
@@ -87,16 +99,14 @@
 
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // OneSignal init + бутон
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(async function(OneSignal) {
       await OneSignal.init({
         appId: "347845c9-a96f-49a5-8505-724accf392b3",
-        notifyButton: { enable: false } // изключваме вградения бутон
+        notifyButton: { enable: false }
       });
 
       const btn = document.getElementById('subscribeBtn');
-
       async function updateBtn() {
         const state = await OneSignal.User.PushSubscription.optedIn();
         btn.textContent = state ? "Абониран си ✔" : "Абонирай ме";
